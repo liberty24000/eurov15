@@ -2148,3 +2148,28 @@ a:hover {
   src: url('https://r2cdn.perplexity.ai/fonts/FKGroteskNeue.woff2')
     format('woff2');
 }
+
+.backtesting-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 24px;
+  font-size: 14px;
+}
+.backtesting-table th, .backtesting-table td {
+  border: 1px solid var(--color-border, #ccc);
+  padding: 6px 10px;
+  text-align: center;
+}
+.backtesting-table th {
+  background: var(--color-surface, #f5f5f5);
+  font-weight: 600;
+}
+.backtesting-table tr:nth-child(even) {
+  background: var(--color-secondary, #f9f9f9);
+}
+@media (max-width: 600px) {
+  .backtesting-table th, .backtesting-table td {
+    font-size: 12px;
+    padding: 4px 2px;
+  }
+}

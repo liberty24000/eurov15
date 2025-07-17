@@ -99,6 +99,8 @@ class EuroMillionsProV15 {
             this.updateDashboardMetrics();
             // Calculer et afficher les statistiques
             this.updateStatistics();
+            // Lancement du backtesting réel
+            await this.runBacktesting();
         } catch (e) {
             this.showToast('Erreur de chargement des CSV', 'error');
             console.error(e);
@@ -1057,6 +1059,118 @@ class EuroMillionsProV15 {
                 scales: { x: { title: { display: true, text: 'Étoile' } }, y: { title: { display: true, text: 'Occurrences' } } }
             }
         });
+    }
+
+    // Backtesting réel sur l'historique (hot numbers par défaut)
+    async runBacktesting() {
+        if (!this.csvDrawings.length) return;
+        // Pour chaque tirage, on génère la grille hot numbers basée sur l'historique précédent
+        const draws = this.csvDrawings.slice().reverse(); // du plus ancien au plus récent
+        const results = [];
+        const freq = {};
+        const starFreq = {};
+        let totalGain = 0;
+        let totalSuccess = 0;
+        let totalTests = 0;
+        let gainHistory = [];
+        for (let i = 0; i < draws.length; i++) {
+            // On ne backtest pas sur les 10 premiers tirages (pas assez d'historique)
+            if (i < 10) {
+                // On met à jour les fréquences pour la suite
+                for (let k = 1; k <= 5; k++) freq[draws[i][`boule_${k}`]] = (freq[draws[i][`boule_${k}`]]||0)+1;
+                for (let k = 1; k <= 2; k++) starFreq[draws[i][`etoile_${k}`]] = (starFreq[draws[i][`etoile_${k}`]]||0)+1;
+                continue;
+            }
+            // Génère la grille hot numbers sur l'historique précédent
+            const hotNumbers = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,5).map(e=>e[0]);
+            const hotStars = Object.entries(starFreq).sort((a,b)=>b[1]-a[1]).slice(0,2).map(e=>e[0]);
+            // Tirage réel
+            const realNumbers = [1,2,3,4,5].map(k=>draws[i][`boule_${k}`]);
+            const realStars = [1,2].map(k=>draws[i][`etoile_${k}`]);
+            // Score
+            const goodNumbers = hotNumbers.filter(n=>realNumbers.includes(n)).length;
+            const goodStars = hotStars.filter(s=>realStars.includes(s)).length;
+            // Gain simulé (exemple : 5+2 = jackpot, 5+1 = 100k€, 5+0 = 10k€, 4+2 = 1k€, etc.)
+            let gain = 0;
+            if (goodNumbers === 5 && goodStars === 2) gain = parseFloat((draws[i].rapport_du_rang1||'0').replace(/\s/g,''))||10000000;
+            else if (goodNumbers === 5 && goodStars === 1) gain = 100000;
+            else if (goodNumbers === 5) gain = 10000;
+            else if (goodNumbers === 4 && goodStars === 2) gain = 1000;
+            else if (goodNumbers === 4 && goodStars === 1) gain = 200;
+            else if (goodNumbers === 4) gain = 100;
+            else if (goodNumbers === 3 && goodStars === 2) gain = 50;
+            else if (goodNumbers === 3 && goodStars === 1) gain = 20;
+            else if (goodNumbers === 2 && goodStars === 2) gain = 10;
+            else if (goodNumbers === 2 && goodStars === 1) gain = 5;
+            else gain = 0;
+            totalGain += gain;
+            if (gain > 0) totalSuccess++;
+            totalTests++;
+            gainHistory.push(totalGain);
+            results.push({
+                date: draws[i].date_de_tirage,
+                realNumbers,
+                realStars,
+                hotNumbers,
+                hotStars,
+                goodNumbers,
+                goodStars,
+                gain
+            });
+            // Mise à jour des fréquences pour la suite
+            for (let k = 1; k <= 5; k++) freq[draws[i][`boule_${k}`]] = (freq[draws[i][`boule_${k}`]]||0)+1;
+            for (let k = 1; k <= 2; k++) starFreq[draws[i][`etoile_${k}`]] = (starFreq[draws[i][`etoile_${k}`]]||0)+1;
+        }
+        // Affichage des résultats dans la section Backtesting
+        this.displayBacktestingResults(results, totalSuccess, totalTests, totalGain, gainHistory);
+    }
+
+    // Affiche les résultats de backtesting (tableau et graphique)
+    displayBacktestingResults(results, totalSuccess, totalTests, totalGain, gainHistory) {
+        // Met à jour les métriques
+        const metrics = document.querySelectorAll('.backtesting-metrics .metric-card');
+        if (metrics.length >= 3) {
+            metrics[0].querySelector('.metric-value').textContent = totalTests.toLocaleString();
+            metrics[1].querySelector('.metric-value').textContent = ((totalSuccess/totalTests)*100).toFixed(2)+'%';
+            metrics[2].querySelector('.metric-value').textContent = (totalGain/totalTests).toFixed(2)+'€';
+        }
+        // Affiche la courbe de gain cumulé
+        const ctx = document.getElementById('backtestingChart');
+        if (ctx) {
+            if (this.backtestingChart) this.backtestingChart.destroy();
+            this.backtestingChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: results.map(r=>r.date),
+                    datasets: [{
+                        label: 'Gain cumulé (€)',
+                        data: gainHistory,
+                        borderColor: 'rgba(33,128,141,1)',
+                        backgroundColor: 'rgba(33,128,141,0.1)',
+                        fill: true,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { display: false }, y: { title: { display: true, text: '€' } } }
+                }
+            });
+        }
+        // Affiche un tableau des 10 derniers résultats
+        let tableHtml = `<table class='backtesting-table'><thead><tr><th>Date</th><th>Grille Hot</th><th>Tirage Réel</th><th>Gagné</th><th>Gain (€)</th></tr></thead><tbody>`;
+        results.slice(-10).reverse().forEach(r => {
+            tableHtml += `<tr><td>${r.date}</td><td>${r.hotNumbers.join('-')} + ${r.hotStars.join('-')}</td><td>${r.realNumbers.join('-')} + ${r.realStars.join('-')}</td><td>${r.goodNumbers}N/${r.goodStars}E</td><td>${r.gain}</td></tr>`;
+        });
+        tableHtml += '</tbody></table>';
+        let container = document.getElementById('backtesting-table-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'backtesting-table-container';
+            document.querySelector('#backtesting').appendChild(container);
+        }
+        container.innerHTML = tableHtml;
     }
 }
 
