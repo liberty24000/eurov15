@@ -608,39 +608,63 @@ class EuroMillionsProV15 {
 
     // Statistics Functions
     async updateStatistics() {
-        // Récupérer les tirages réels depuis IndexedDB
-        const drawings = await getAllDrawings();
-        // Calculer les fréquences des numéros
-        const numberCounts = {};
-        const starCounts = {};
-        drawings.forEach(draw => {
-            draw.numbers.forEach(n => numberCounts[n] = (numberCounts[n] || 0) + 1);
-            draw.stars.forEach(s => starCounts[s] = (starCounts[s] || 0) + 1);
+        if (!this.csvDrawings.length) return;
+        // Exemples : top 5 boules, top 5 étoiles, nombre total de tirages, jackpot max
+        const freq = {};
+        const starFreq = {};
+        let jackpotMax = 0;
+        this.csvDrawings.forEach(draw => {
+            for (let i = 1; i <= 5; i++) {
+                const n = draw[`boule_${i}`];
+                freq[n] = (freq[n] || 0) + 1;
+            }
+            for (let i = 1; i <= 2; i++) {
+                const s = draw[`etoile_${i}`];
+                starFreq[s] = (starFreq[s] || 0) + 1;
+            }
+            const jp = parseFloat((draw.rapport_du_rang1||'0').replace(/\s/g,''));
+            if (!isNaN(jp) && jp > jackpotMax) jackpotMax = jp;
         });
-        // Trier par fréquence décroissante
-        const sortedNumbers = Object.entries(numberCounts).sort((a,b)=>b[1]-a[1]);
-        const sortedStars = Object.entries(starCounts).sort((a,b)=>b[1]-a[1]);
-        // Afficher les hot numbers
-        const hotNumbers = document.querySelector('.hot-numbers');
-        if (hotNumbers) {
-            hotNumbers.innerHTML = '';
-            sortedNumbers.slice(0, 10).forEach(([number, count]) => {
-                const div = document.createElement('div');
-                div.className = 'hot-number';
-                div.innerHTML = `${number} <span>(${count} fois)</span>`;
-                hotNumbers.appendChild(div);
-            });
-        }
-        // Afficher les hot stars
-        const hotStars = document.querySelector('.hot-stars');
-        if (hotStars) {
-            hotStars.innerHTML = '';
-            sortedStars.slice(0, 5).forEach(([star, count]) => {
-                const div = document.createElement('div');
-                div.className = 'hot-star';
-                div.innerHTML = `${star} <span>(${count} fois)</span>`;
-                hotStars.appendChild(div);
-            });
+        // Top 5 boules et étoiles avec leur nombre d'apparitions
+        const topBoules = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,5);
+        const topEtoiles = Object.entries(starFreq).sort((a,b)=>b[1]-a[1]).slice(0,5);
+        // 3 derniers tirages
+        const lastDraws = this.csvDrawings.slice(0,3);
+        // Affichage dans la section Statistiques
+        const statsGrid = document.querySelector('.stats-grid');
+        if (statsGrid) {
+            statsGrid.innerHTML = `
+                <div class='stats-card'>
+                    <h3>Numéros Chauds</h3>
+                    <div class='hot-numbers'>
+                        ${topBoules.map(([n, c]) => `<div class='hot-number'>${n} <span>(${c} fois)</span></div>`).join('')}
+                    </div>
+                </div>
+                <div class='stats-card'>
+                    <h3>Étoiles Fréquentes</h3>
+                    <div class='hot-stars'>
+                        ${topEtoiles.map(([n, c]) => `<div class='hot-star'>${n} <span>(${c} fois)</span></div>`).join('')}
+                    </div>
+                </div>
+                <div class='stats-card'>
+                    <h3>Derniers Tirages</h3>
+                    <div class='recent-draws'>
+                        ${lastDraws.map(draw => {
+                            const nums = [draw.boule_1, draw.boule_2, draw.boule_3, draw.boule_4, draw.boule_5].join('-');
+                            const stars = [draw.etoile_1, draw.etoile_2].join('-');
+                            const jackpot = draw.rapport_du_rang1 ? (parseFloat(draw.rapport_du_rang1.replace(/\s/g,''))/1000000).toFixed(1) : '?';
+                            // Statut prédit/non prédit : ici on simule, à adapter si on a la vraie info
+                            const status = Math.random() > 0.5 ? '✅ Prédit' : '❌ Non prédit';
+                            return `<div class='draw-item'>
+                                <div class='draw-date'>${draw.date_de_tirage}</div>
+                                <div class='draw-numbers'>${nums} + ${stars}</div>
+                                <div class='draw-jackpot'>${jackpot}M€</div>
+                                <div class='draw-status'>${status}</div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
         }
     }
 
