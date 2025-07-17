@@ -474,53 +474,14 @@
             <div class="section-header">
                 <h2>Statistiques 2025</h2>
             </div>
-            
             <div class="stats-grid">
-                <div class="stats-card">
-                    <h3>Numéros Chauds</h3>
-                    <div class="hot-numbers">
-                        <div class="hot-number">50 <span>(54 fois)</span></div>
-                        <div class="hot-number">21 <span>(47 fois)</span></div>
-                        <div class="hot-number">19 <span>(46 fois)</span></div>
-                        <div class="hot-number">45 <span>(45 fois)</span></div>
-                        <div class="hot-number">29 <span>(44 fois)</span></div>
-                    </div>
-                </div>
-                
-                <div class="stats-card">
-                    <h3>Étoiles Fréquentes</h3>
-                    <div class="hot-stars">
-                        <div class="hot-star">3 <span>(93 fois)</span></div>
-                        <div class="hot-star">6 <span>(90 fois)</span></div>
-                        <div class="hot-star">5 <span>(90 fois)</span></div>
-                        <div class="hot-star">7 <span>(89 fois)</span></div>
-                        <div class="hot-star">9 <span>(88 fois)</span></div>
-                    </div>
-                </div>
-                
-                <div class="stats-card">
-                    <h3>Derniers Tirages</h3>
-                    <div class="recent-draws">
-                        <div class="draw-item error">
-                            <div class="draw-date">11/07/2025</div>
-                            <div class="draw-numbers">4-7-12-39-45 + 3-8</div>
-                            <div class="draw-jackpot">85,0M€</div>
-                            <div class="draw-status">❌ Non prédit</div>
-                        </div>
-                        <div class="draw-item">
-                            <div class="draw-date">08/07/2025</div>
-                            <div class="draw-numbers">1-8-9-18-50 + 1-5</div>
-                            <div class="draw-jackpot">74,5M€</div>
-                            <div class="draw-status">✅ Prédit</div>
-                        </div>
-                        <div class="draw-item">
-                            <div class="draw-date">04/07/2025</div>
-                            <div class="draw-numbers">19-29-42-45-48 + 5-7</div>
-                            <div class="draw-jackpot">64,9M€</div>
-                            <div class="draw-status">✅ Prédit</div>
-                        </div>
-                    </div>
-                </div>
+                <!-- Les stats-cards dynamiques sont injectées par JS -->
+            </div>
+            <div class="chart-container">
+                <canvas id="numbersFrequencyChart" height="120"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="starsFrequencyChart" height="80"></canvas>
             </div>
         </section>
 

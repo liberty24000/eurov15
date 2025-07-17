@@ -666,6 +666,9 @@ class EuroMillionsProV15 {
                 </div>
             `;
         }
+        // Affichage des graphiques Chart.js
+        this.displayNumbersFrequencyChart(freq);
+        this.displayStarsFrequencyChart(starFreq);
     }
 
     // Prediction Functions
@@ -1004,6 +1007,56 @@ class EuroMillionsProV15 {
 
     delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Affiche le graphique des fréquences des numéros
+    displayNumbersFrequencyChart(freq) {
+        const ctx = document.getElementById('numbersFrequencyChart');
+        if (!ctx) return;
+        const labels = Array.from({length:50}, (_,i)=>String(i+1));
+        const data = labels.map(n => freq[n] || 0);
+        if (this.numbersChart) this.numbersChart.destroy();
+        this.numbersChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Fréquence des numéros',
+                    data,
+                    backgroundColor: 'rgba(33,128,141,0.7)'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { x: { title: { display: true, text: 'Numéro' } }, y: { title: { display: true, text: 'Occurrences' } } }
+            }
+        });
+    }
+
+    // Affiche le graphique des fréquences des étoiles
+    displayStarsFrequencyChart(starFreq) {
+        const ctx = document.getElementById('starsFrequencyChart');
+        if (!ctx) return;
+        const labels = Array.from({length:12}, (_,i)=>String(i+1));
+        const data = labels.map(n => starFreq[n] || 0);
+        if (this.starsChart) this.starsChart.destroy();
+        this.starsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Fréquence des étoiles',
+                    data,
+                    backgroundColor: 'rgba(255,215,0,0.7)'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { x: { title: { display: true, text: 'Étoile' } }, y: { title: { display: true, text: 'Occurrences' } } }
+            }
+        });
     }
 }
 
