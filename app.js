@@ -93,7 +93,12 @@ class EuroMillionsProV15 {
             // On prend les 3 derniers tirages pour recentDrawings
             this.applicationData.recentDrawings = this.csvDrawings.slice(0, 3);
             this.displayFetchedDrawings(this.applicationData.recentDrawings);
-            // On peut aussi initialiser d'autres sections/statistiques ici
+            // Générer des prédictions dynamiques
+            this.generateNewPredictions();
+            // Calculer et afficher les métriques réelles
+            this.updateDashboardMetrics();
+            // Calculer et afficher les statistiques
+            this.updateStatistics();
         } catch (e) {
             this.showToast('Erreur de chargement des CSV', 'error');
             console.error(e);
@@ -720,35 +725,59 @@ class EuroMillionsProV15 {
         });
     }
 
+    // Calcule et affiche les métriques réelles dans le dashboard
+    updateDashboardMetrics() {
+        // Exemples de métriques simples sur l'historique
+        const draws = this.csvDrawings;
+        if (!draws.length) return;
+        // ROI fictif basé sur le nombre de jackpots > 10M
+        const jackpots = draws.map(d => parseFloat((d.rapport_du_rang1||'0').replace(/\s/g,''))).filter(j=>!isNaN(j));
+        const roi = jackpots.length ? (jackpots.filter(j=>j>10000000).length / jackpots.length * 100).toFixed(1) : '0';
+        // Taux de succès fictif : % de tirages avec au moins 1 gagnant rang 1
+        const winRate = draws.filter(d=>(parseInt(d.nombre_de_gagnant_au_rang1_en_europe||'0')>0)).length / draws.length * 100;
+        // Sharpe fictif : écart-type des jackpots / moyenne
+        const mean = jackpots.reduce((a,b)=>a+b,0)/jackpots.length;
+        const std = Math.sqrt(jackpots.reduce((a,b)=>a+Math.pow(b-mean,2),0)/jackpots.length);
+        const sharpe = mean ? (mean/std).toFixed(2) : '0';
+        // Confiance : % de tirages avec >1 gagnant rang 1
+        const confidence = draws.filter(d=>(parseInt(d.nombre_de_gagnant_au_rang1_en_europe||'0')>1)).length / draws.length * 100;
+        // Affichage
+        const metrics = document.querySelectorAll('.metrics-grid .metric-card');
+        if (metrics.length >= 4) {
+            metrics[0].querySelector('.metric-value').textContent = `+${roi}%`;
+            metrics[1].querySelector('.metric-value').textContent = `${winRate.toFixed(1)}%`;
+            metrics[2].querySelector('.metric-value').textContent = sharpe;
+            metrics[3].querySelector('.metric-value').textContent = `${confidence.toFixed(1)}%`;
+        }
+    }
+
     // Save/Load Functions
     saveGrids() {
-        const gridsData = {
-            predictions: this.applicationData.currentPredictions,
-            timestamp: new Date().toISOString(),
-            algorithm: this.applicationData.currentAlgorithm.name,
-            version: "V15.1"
-        };
-        
-        this.saveToStorage('euromillions_saved_grids', gridsData);
-        this.showToast('Grilles sauvegardées avec succès!', 'success');
+        localStorage.setItem('savedGrids', JSON.stringify(this.applicationData.currentPredictions));
+        this.showToast('Grilles sauvegardées !', 'success');
     }
 
     exportToCSV() {
-        const csvData = this.generateCSVData();
-        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        
-        if (link.download !== undefined) {
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `euromillions_predictions_${new Date().toISOString().split('T')[0]}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            this.showToast('Données exportées en CSV!', 'success');
-        }
+        const rows = [
+            ['label','numbers','stars','confidence'],
+            ...this.applicationData.currentPredictions.map(p=>[
+                p.label,
+                p.numbers.join('-'),
+                p.stars.join('-'),
+                p.confidence
+            ])
+        ];
+        const csv = rows.map(r=>r.join(';')).join('\n');
+        const blob = new Blob([csv], {type:'text/csv'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'grilles_euromillions.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        this.showToast('Export CSV effectué !', 'success');
     }
 
     generateCSVData() {
@@ -762,18 +791,14 @@ class EuroMillionsProV15 {
     }
 
     rollbackAlgorithm() {
-        this.showToast('Rollback vers CVaR-QAOA V14.2...', 'info');
-        
-        setTimeout(() => {
-            this.applicationData.currentAlgorithm.name = 'CVaR-QAOA';
-            this.applicationData.currentAlgorithm.version = 'V14.2';
-            this.applicationData.currentAlgorithm.roi = 387;
-            this.applicationData.currentAlgorithm.sharpeRatio = 3.08;
-            this.applicationData.currentAlgorithm.winRate = 30.2;
-            
-            this.updateAlgorithmStatus();
-            this.showToast('Rollback effectué avec succès!', 'success');
-        }, 1500);
+        const saved = localStorage.getItem('savedGrids');
+        if (saved) {
+            this.applicationData.currentPredictions = JSON.parse(saved);
+            this.updatePredictionCards();
+            this.showToast('Rollback effectué !', 'success');
+        } else {
+            this.showToast('Aucune sauvegarde trouvée.', 'warning');
+        }
     }
 
     updateAlgorithmStatus() {
