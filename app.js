@@ -73,17 +73,31 @@ class EuroMillionsProV15 {
             }
         };
         
+        this.csvDrawings = [];
         this.init();
     }
 
-    init() {
+    async init() {
         this.setupEventListeners();
         this.initializeCharts();
-        this.loadSavedData(); // On charge les données réelles
+        await this.loadDrawingsFromCSVAndInit();
         this.setupAutoSave();
         this.setupPWA();
         this.showSection('dashboard');
         this.updatePWAStatus();
+    }
+
+    async loadDrawingsFromCSVAndInit() {
+        try {
+            this.csvDrawings = await loadDrawingsFromCSV();
+            // On prend les 3 derniers tirages pour recentDrawings
+            this.applicationData.recentDrawings = this.csvDrawings.slice(-3).reverse();
+            this.displayFetchedDrawings(this.applicationData.recentDrawings);
+            // On peut aussi initialiser d'autres sections/statistiques ici
+        } catch (e) {
+            this.showToast('Erreur de chargement du CSV', 'error');
+            console.error(e);
+        }
     }
 
     setupEventListeners() {
@@ -392,22 +406,21 @@ class EuroMillionsProV15 {
 
     generateSimulatedDrawings() { /* SUPPRIMÉ : plus de génération simulée */ }
 
+    // On modifie displayFetchedDrawings pour afficher les vrais tirages
     displayFetchedDrawings(drawings) {
         const container = document.getElementById('fetched-draws');
         if (!container) return;
-        
         container.innerHTML = '';
-        
         drawings.forEach(draw => {
-            const drawElement = document.createElement('div');
-            drawElement.className = 'draw-item';
-            drawElement.innerHTML = `
-                <div class="draw-date">${new Date(draw.date).toLocaleDateString('fr-FR')}</div>
-                <div class="draw-numbers">${draw.numbers.join('-')} + ${draw.stars.join('-')}</div>
-                <div class="draw-jackpot">${(parseInt(draw.jackpot) / 1000000).toFixed(1)}M€</div>
-                <div class="draw-status">${draw.predicted ? '✅ Prédit' : '⚠️ Non prédit'}</div>
-            `;
-            container.appendChild(drawElement);
+            const numbers = [draw.boule_1, draw.boule_2, draw.boule_3, draw.boule_4, draw.boule_5].join(' ');
+            const stars = [draw.etoile_1, draw.etoile_2].join(' ');
+            const date = draw.date_de_tirage;
+            const html = `<div class="draw-item">
+                <div class="draw-date">${date}</div>
+                <div class="draw-numbers">${numbers}</div>
+                <div class="draw-stars">⭐ ${stars}</div>
+            </div>`;
+            container.innerHTML += html;
         });
     }
 
@@ -998,6 +1011,27 @@ async function getLastPredictions(limit = 4) {
         req.onsuccess = () => resolve(req.result.slice(-limit));
         req.onerror = (e) => reject(e.target.error);
     });
+}
+
+// Ajout : Fonction utilitaire pour parser un CSV (séparateur ;) en objets JS
+function parseCSV(csv, delimiter = ';') {
+    const lines = csv.trim().split('\n');
+    const headers = lines[0].split(delimiter);
+    return lines.slice(1).map(line => {
+        const values = line.split(delimiter);
+        const obj = {};
+        headers.forEach((header, i) => {
+            obj[header.trim()] = values[i]?.trim();
+        });
+        return obj;
+    });
+}
+
+// Ajout : Fonction pour charger le CSV côté client
+async function loadDrawingsFromCSV() {
+    const response = await fetch('euromillion/euromillions.csv');
+    const text = await response.text();
+    return parseCSV(text);
 }
 
 // Initialize application when DOM is loaded
