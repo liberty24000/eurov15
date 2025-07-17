@@ -89,13 +89,13 @@ class EuroMillionsProV15 {
 
     async loadDrawingsFromCSVAndInit() {
         try {
-            this.csvDrawings = await loadDrawingsFromCSV();
+            this.csvDrawings = await loadAllDrawingsFromCSVs();
             // On prend les 3 derniers tirages pour recentDrawings
-            this.applicationData.recentDrawings = this.csvDrawings.slice(-3).reverse();
+            this.applicationData.recentDrawings = this.csvDrawings.slice(0, 3);
             this.displayFetchedDrawings(this.applicationData.recentDrawings);
             // On peut aussi initialiser d'autres sections/statistiques ici
         } catch (e) {
-            this.showToast('Erreur de chargement du CSV', 'error');
+            this.showToast('Erreur de chargement des CSV', 'error');
             console.error(e);
         }
     }
@@ -1027,11 +1027,30 @@ function parseCSV(csv, delimiter = ';') {
     });
 }
 
-// Ajout : Fonction pour charger le CSV côté client
-async function loadDrawingsFromCSV() {
-    const response = await fetch('euromillion/euromillions.csv');
-    const text = await response.text();
-    return parseCSV(text);
+// Modifié : Fonction pour charger plusieurs CSV et fusionner les tirages
+async function loadAllDrawingsFromCSVs() {
+    const csvFiles = [
+        'euromillion/euromillions.csv',
+        'euromillion/euromillions_2.csv',
+        'euromillion/euromillions_201902.csv',
+        'euromillion/euromillions_202002.csv',
+        'euromillion/euromillions_3.csv',
+        'euromillion/euromillions_4.csv',
+    ];
+    let allDrawings = [];
+    for (const file of csvFiles) {
+        try {
+            const response = await fetch(file);
+            const text = await response.text();
+            const parsed = parseCSV(text);
+            allDrawings = allDrawings.concat(parsed);
+        } catch (e) {
+            console.warn('Erreur de chargement du CSV', file, e);
+        }
+    }
+    // Tri par date décroissante (format AAAAMMJJ ou AAAA-MM-JJ)
+    allDrawings.sort((a, b) => (b.date_de_tirage || '').localeCompare(a.date_de_tirage || ''));
+    return allDrawings;
 }
 
 // Initialize application when DOM is loaded
